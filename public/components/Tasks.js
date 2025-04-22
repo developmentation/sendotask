@@ -131,68 +131,31 @@ export default {
 
       <!-- Task Area -->
       <div class="flex-1 flex flex-col relative">
-        <!-- Tasks and JSON Parsing Display -->
+        <!-- Tasks Display -->
         <div
           ref="taskContainer"
           class="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 px-6 pt-6 pb-4"
           :style="taskContainerStyle"
         >
-          <!-- JSON Parsing Display (when generating tasks) -->
-          <div v-if="isGenerating" class="mb-6 p-4 rounded-lg shadow-sm bg-gray-100 dark:bg-gray-800 max-w-[80%]">
-            <div class="flex items-center justify-between mb-2">
-              <span class="font-semibold" :class="darkMode ? 'text-white' : 'text-gray-900'">Generating Tasks...</span>
-            </div>
-            <pre class="text-left" :class="darkMode ? 'text-gray-200' : 'text-gray-800'">{{ rawJsonResponse || 'Waiting for response...' }}</pre>
+          <div v-if="isGenerating" class="mb-6 p-4 rounded-lg shadow-sm bg-gray-100 dark:bg-gray-800 max-w-[80%] text-center">
+            <span class="font-semibold" :class="darkMode ? 'text-white' : 'text-gray-900'">Generating Task List...</span>
           </div>
-
-          <!-- Task List -->
           <div
             v-for="task in activeTasks"
             :key="task.id"
-            class="mb-6 p-4 rounded-lg shadow-sm bg-gray-100 dark:bg-gray-800 max-w-[80%]"
+            class="mb-4 p-4 rounded-lg shadow-sm bg-gray-100 dark:bg-gray-800 max-w-[80%]"
           >
-            <!-- Header (Title, Timestamp, Buttons) -->
-            <div class="flex items-center justify-between mb-2">
-              <div class="flex items-center gap-2">
-                <span class="font-semibold" :class="darkMode ? 'text-white' : 'text-gray-900'">
-                  {{ task.data.title }}
-                </span>
-                <span class="text-xs text-gray-500 dark:text-gray-400">
-                  {{ formatTime(task.timestamp) }}
-                </span>
-                <span v-if="task.data.completed" class="text-xs text-green-500">
-                  Completed by {{ task.data.displayName || 'Unknown' }}
-                </span>
-              </div>
-              <div class="flex gap-2">
-                <button
-                  v-if="!task.data.completed"
-                  @click.stop="markTaskCompleted(task)"
-                  class="text-gray-400 hover:text-green-500 rounded-full p-1"
-                  :class="darkMode ? 'bg-gray-700' : 'bg-gray-200'"
-                  title="Mark as completed"
-                >
-                  <i class="pi pi-check text-sm"></i>
-                </button>
-                <button
-                  @click.stop="editTaskComment(task)"
-                  class="text-gray-400 hover:text-blue-500 rounded-full p-1"
-                  :class="darkMode ? 'bg-gray-700' : 'bg-gray-200'"
-                  title="Edit comment"
-                >
-                  <i class="pi pi-comment text-sm"></i>
-                </button>
-                <button
-                  @click.stop="deleteTask(task.id)"
-                  class="text-red-400 hover:text-red-300 rounded-full p-1"
-                  :class="darkMode ? 'bg-gray-700' : 'bg-gray-200'"
-                  title="Delete task"
-                >
-                  <i class="pi pi-times text-sm"></i>
-                </button>
-              </div>
+            <div class="flex items-center gap-2 mb-2">
+              <input
+                type="checkbox"
+                v-model="task.data.completed"
+                @change="markTaskCompleted(task)"
+                class="h-5 w-5 text-blue-600 dark:text-blue-400 rounded border-gray-300 dark:border-gray-600 focus:ring-blue-500"
+              />
+              <span class="font-semibold" :class="darkMode ? 'text-white' : 'text-gray-900'">{{ task.data.title }}</span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">{{ formatTime(task.timestamp) }}</span>
+              <span v-if="task.data.completed" class="text-xs text-green-500">Completed by {{ task.data.displayName || 'Unknown' }}</span>
             </div>
-            <!-- Task Content -->
             <div class="text-left" :class="darkMode ? 'text-gray-200' : 'text-gray-800'">
               <p><strong>Description:</strong> {{ task.data.description }}</p>
               <p v-if="task.data.comment"><strong>Comment:</strong> {{ task.data.comment }}</p>
@@ -204,6 +167,24 @@ export default {
                 @blur="updateTaskComment(task)"
                 @keypress.enter="updateTaskComment(task)"
               ></textarea>
+            </div>
+            <div class="flex gap-2 mt-2">
+              <button
+                @click.stop="editTaskComment(task)"
+                class="text-gray-400 hover:text-blue-500 rounded-full p-1"
+                :class="darkMode ? 'bg-gray-700' : 'bg-gray-200'"
+                title="Edit comment"
+              >
+                <i class="pi pi-comment text-sm"></i>
+              </button>
+              <button
+                @click.stop="deleteTask(task.id)"
+                class="text-red-400 hover:text-red-300 rounded-full p-1"
+                :class="darkMode ? 'bg-gray-700' : 'bg-gray-200'"
+                title="Delete task"
+              >
+                <i class="pi pi-times text-sm"></i>
+              </button>
             </div>
           </div>
           <div v-if="!activeTasks.length && !isGenerating" class="text-gray-500 dark:text-gray-400 text-center py-12">
@@ -263,7 +244,7 @@ export default {
             <button
               @click="sendTaskRequest"
               class="py-2 px-4 bg-blue-600 dark:bg-blue-500 dark:hover:bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all"
-              :disabled="!draft.trim() || !selectedAgentId || !activeTaskListId || isSending"
+              :disabled="!draft.trim() || !selectedAgentId || isSending"
             >
               Send
             </button>
@@ -282,14 +263,13 @@ export default {
     console.log("Tasks.js setup called");
     const { entities } = useGlobal();
     const { addEntity, updateEntity, removeEntity } = useHistory();
-    const { triggerLLM, userUuid, displayName } = useRealTime();
+    const { triggerLLM, userUuid, displayName, on, isConnected } = useRealTime();
     const { models } = useModels();
     const activeTaskListId = Vue.ref(null);
     const selectedAgentId = Vue.ref(null);
     const draft = Vue.ref("");
     const isSending = Vue.ref(false);
     const isGenerating = Vue.ref(false);
-    const rawJsonResponse = Vue.ref("");
     const isEditingTaskList = Vue.ref(null);
     const isEditingComment = Vue.ref(null);
     const taskContainer = Vue.ref(null);
@@ -298,6 +278,7 @@ export default {
     const isAccordionOpen = Vue.ref(false);
     const showManualTaskForm = Vue.ref(false);
     const manualTask = Vue.ref({ title: "", description: "", comment: "" });
+    const pendingTaskLists = Vue.ref({}); // Store pending task lists by taskListId
 
     // Compute the current task list name
     const currentTaskListName = Vue.computed(() => {
@@ -316,12 +297,12 @@ export default {
       isAccordionOpen.value ? 'pi pi-chevron-circle-up' : 'pi pi-chevron-circle-down'
     );
 
-    // Compute active tasks for the selected task list
+    // Compute active tasks for the selected task list, ordered by data.order
     const activeTasks = Vue.computed(() => {
       if (!activeTaskListId.value) return [];
       return entities.value.tasks
-        .filter((task) => task.data.taskList === activeTaskListId.value)
-        .sort((a, b) => a.timestamp - b.timestamp);
+        .filter((task) => task.data.taskList === activeTaskListId.value && !task.data.isStreaming)
+        .sort((a, b) => a.data.order - b.data.order); // Sort by data.order instead of timestamp
     });
 
     // Detect mobile devices
@@ -364,6 +345,19 @@ export default {
         taskContainer.value.addEventListener('scroll', handleScroll);
       }
       window.addEventListener('resize', handleResize);
+
+      // Listen for llm-end events
+      on('llm-end', (eventObj) => {
+        console.log("Received llm-end event:", eventObj);
+        if (eventObj.data.entityType === "taskLists" && pendingTaskLists.value[eventObj.id]) {
+          const taskListId = eventObj.id; // taskListId is the same as eventObj.id for taskLists
+          const taskList = entities.value.taskLists.find(tl => tl.id === taskListId);
+          if (taskList) {
+            console.log("Processing llm-end for taskList:", taskList);
+            processLLMResponse(eventObj, taskListId);
+          }
+        }
+      });
     });
 
     Vue.onUnmounted(() => {
@@ -420,6 +414,7 @@ export default {
       console.log("addTaskList called");
       const id = addEntity("taskLists", {
         name: `Task List ${entities.value.taskLists.length + 1}`,
+        isTitleSet: false, // Flag to track if the title has been manually set
       });
       activeTaskListId.value = id;
       if (isMobile.value) {
@@ -447,13 +442,15 @@ export default {
 
     function updateTaskList(taskList) {
       console.log("updateTaskList called for taskList:", taskList.id);
-      updateEntity("taskLists", taskList.id, { name: taskList.data.name });
+      updateEntity("taskLists", taskList.id, {
+        name: taskList.data.name,
+        isTitleSet: true, // Mark the title as manually set
+      });
       isEditingTaskList.value = null;
     }
 
     function deleteTaskList(id) {
       console.log("deleteTaskList called with id:", id);
-      // Delete associated tasks
       entities.value.tasks
         .filter((task) => task.data.taskList === id)
         .forEach((task) => removeEntity("tasks", task.id));
@@ -468,7 +465,7 @@ export default {
       console.log("markTaskCompleted called for task:", task.id);
       updateEntity("tasks", task.id, {
         ...task.data,
-        completed: true,
+        completed: task.data.completed,
         displayName: displayName.value,
       });
     }
@@ -503,12 +500,19 @@ export default {
         return;
       }
       console.log("Adding manual task:", manualTask.value);
+
+      // Find the highest order value in the current task list
+      const highestOrder = activeTasks.value.length > 0
+        ? Math.max(...activeTasks.value.map(task => task.data.order || 0))
+        : 0;
+
       addEntity("tasks", {
         taskList: activeTaskListId.value,
         title: manualTask.value.title,
         description: manualTask.value.description || "",
         comment: manualTask.value.comment || "",
         completed: false,
+        order: highestOrder + 1, // Append to the end
       });
       manualTask.value = { title: "", description: "", comment: "" };
       showManualTaskForm.value = false;
@@ -523,7 +527,7 @@ export default {
     }
 
     function sendTaskRequest() {
-      if (!draft.value.trim() || !selectedAgentId.value || !activeTaskListId.value || isSending.value) {
+      if (!draft.value.trim() || !selectedAgentId.value || isSending.value) {
         console.log("Invalid task request, aborting");
         return;
       }
@@ -531,40 +535,39 @@ export default {
 
       isSending.value = true;
       isGenerating.value = true;
-      rawJsonResponse.value = "";
 
-      // Create a new task list for LLM-generated tasks
-      console.log("Creating new task list for LLM response");
-      const newTaskListId = addEntity("taskLists", {
-        name: `Generated Task List ${entities.value.taskLists.length + 1}`,
-      });
+      let taskListIdToUse;
 
-      // Create a placeholder task to indicate generation
-      const responseTaskId = addEntity("tasks", {
-        taskList: newTaskListId,
-        title: "Generating tasks...",
-        description: "",
-        comment: "",
-        isStreaming: true,
-        completed: false,
-      });
+      // If no activeTaskListId, create a new task list
+      if (!activeTaskListId.value) {
+        console.log("No active task list, creating a new one");
+        taskListIdToUse = addEntity("taskLists", {
+          name: draft.value.substring(0, 50), // Use the draft as the initial task list name (truncate to 50 chars)
+          isTitleSet: false,
+        });
+        activeTaskListId.value = taskListIdToUse;
+      } else {
+        // Reuse the existing task list, even if it's empty
+        console.log("Reusing existing task list with ID:", activeTaskListId.value);
+        taskListIdToUse = activeTaskListId.value;
+      }
+
+      // Store the task list ID for this response
+      pendingTaskLists.value[taskListIdToUse] = { taskListId: taskListIdToUse };
 
       // Build message history
       const agent = entities.value.agents.find((a) => a.id === selectedAgentId.value);
       const messageHistory = [];
 
       // Concatenate system prompts
-      const systemPromptContent = agent && agent.data.systemPrompts && agent.data.systemPrompts.length > 0
-        ? agent.data.systemPrompts
-            .map(prompt => prompt.content)
-            .filter(content => content)
-            .join("\n\n")
-        : "You are a helpful assistant that generates JSON task lists. Return a JSON array of tasks, each with 'title', 'description', and 'comment' fields. Ensure the response is valid JSON.";
+      const systemPrompt = agent && agent.data.systemPrompts && agent.data.systemPrompts.length > 0
+        ? agent.data.systemPrompts.map(prompt => prompt.content).filter(content => content).join("\n\n") + "\n\nAlways return a JSON array of tasks, each with 'title', 'description', 'comment', and 'status' fields, where 'status' is 'pending' or 'complete'. Ensure the response is valid JSON."
+        : "You are a helpful assistant that generates JSON task lists. Return a JSON array of tasks, each with 'title', 'description', 'comment', and 'status' fields, where 'status' is 'pending' or 'complete'. Ensure the response is valid JSON.";
 
-      if (systemPromptContent) {
+      if (systemPrompt) {
         messageHistory.push({
           role: "user",
-          content: systemPromptContent,
+          content: systemPrompt,
         });
       }
 
@@ -580,15 +583,28 @@ export default {
         });
       }
 
+      // Append existing tasks as context, if any
+      if (activeTasks.value.length > 0) {
+        messageHistory.push(...activeTasks.value.map(task => ({
+          role: "user",
+          content: JSON.stringify({
+            title: task.data.title,
+            description: task.data.description,
+            comment: task.data.comment,
+            status: task.data.completed ? "complete" : "pending",
+          }),
+        })));
+      }
+
       // Add the current user request
       messageHistory.push({
         role: "user",
         content: draft.value,
       });
 
-      // Trigger LLM with JSON output
+      // Trigger LLM with JSON output for taskLists
       if (agent) {
-        console.log("Triggering LLM for responseTaskId:", responseTaskId);
+        console.log("Triggering LLM for taskListId:", taskListIdToUse);
         const selectedModel = models.value.find((m) => m.model === agent.data.model) || {
           provider: "gemini",
           name: "Gemini",
@@ -597,119 +613,151 @@ export default {
 
         try {
           triggerLLM(
-            "tasks",
-            responseTaskId,
+            "taskLists",
+            taskListIdToUse,
             {
               provider: selectedModel.provider,
               name: selectedModel.name.en || selectedModel.name,
               model: selectedModel.model,
             },
             0.7,
-            systemPromptContent,
+            systemPrompt,
             draft.value,
             messageHistory,
             true // Request JSON output
           );
-
-          // Listen for LLM response
-          const llmDraftHandler = (eventObj) => {
-            console.log("Received LLM draft event:", eventObj);
-            if (eventObj.id === responseTaskId && eventObj.data.entityType === "tasks") {
-              const content = eventObj.data.content;
-              rawJsonResponse.value += content; // Accumulate JSON response
-              console.log("Accumulated JSON response:", rawJsonResponse.value);
-
-              // Try parsing the JSON
-              try {
-                const jsonTasks = JSON.parse(rawJsonResponse.value);
-                if (Array.isArray(jsonTasks)) {
-                  console.log("Parsed JSON tasks:", jsonTasks);
-                  // Update the task list
-                  updateEntity("taskLists", newTaskListId, {
-                    name: `Generated Task List ${entities.value.taskLists.length}`,
-                  });
-
-                  // Add tasks from JSON
-                  jsonTasks.forEach((task, index) => {
-                    addEntity("tasks", {
-                      taskList: newTaskListId,
-                      title: task.title || `Task ${index + 1}`,
-                      description: task.description || "",
-                      comment: task.comment || "",
-                      completed: false,
-                    });
-                  });
-
-                  // Update the placeholder task
-                  updateEntity("tasks", responseTaskId, {
-                    taskList: newTaskListId,
-                    title: "Tasks generated",
-                    description: `Generated ${jsonTasks.length} tasks`,
-                    comment: "",
-                    isStreaming: false,
-                    completed: false,
-                  });
-
-                  isGenerating.value = false;
-                  rawJsonResponse.value = "";
-                }
-              } catch (e) {
-                console.log("JSON not yet complete or invalid:", e.message);
-                // Continue accumulating response
-              }
-            }
-          };
-
-          const llmEndHandler = (eventObj) => {
-            console.log("Received LLM end event:", eventObj);
-            if (eventObj.id === responseTaskId && eventObj.data.entityType === "tasks") {
-              isGenerating.value = false;
-              if (!rawJsonResponse.value) {
-                updateEntity("tasks", responseTaskId, {
-                  taskList: newTaskListId,
-                  title: "Error",
-                  description: "No response received",
-                  comment: "",
-                  isStreaming: false,
-                  completed: false,
-                });
-              }
-              eventBus.$off("history-llm-draft", llmDraftHandler);
-              eventBus.$off("history-llm-end", llmEndHandler);
-            }
-          };
-
-          eventBus.$on("history-llm-draft", llmDraftHandler);
-          eventBus.$on("history-llm-end", llmEndHandler);
-
         } catch (error) {
           console.error("Error triggering LLM:", error);
-          updateEntity("tasks", responseTaskId, {
-            taskList: newTaskListId,
-            title: "Error",
-            description: "Unable to get response",
-            comment: "",
-            isStreaming: false,
-            completed: false,
+          updateEntity("taskLists", taskListIdToUse, {
+            name: "Error",
+            text: "Unable to get response",
           });
+          delete pendingTaskLists.value[taskListIdToUse];
           isGenerating.value = false;
           isSending.value = false;
+          return;
         }
       } else {
         console.log("No agent found for selectedAgentId:", selectedAgentId.value);
-        updateEntity("tasks", responseTaskId, {
-          taskList: newTaskListId,
-          title: "Error",
-          description: "No agent selected",
-          comment: "",
-          isStreaming: false,
-          completed: false,
+        updateEntity("taskLists", taskListIdToUse, {
+          name: "Error",
+          text: "No agent selected",
         });
+        delete pendingTaskLists.value[taskListIdToUse];
         isGenerating.value = false;
         isSending.value = false;
+        return;
       }
 
       draft.value = "";
+      isSending.value = false;
+    }
+
+    function regenerateTaskList(changedTasks) {
+      if (!selectedAgentId.value || !activeTaskListId.value || isSending.value) {
+        console.log("Invalid regeneration request, aborting");
+        return;
+      }
+      console.log("Regenerating task list for taskListId:", activeTaskListId.value);
+
+      isSending.value = true;
+      isGenerating.value = true;
+
+      // Store the task list ID for this response
+      pendingTaskLists.value[activeTaskListId.value] = { taskListId: activeTaskListId.value };
+
+      // Build message history
+      const agent = entities.value.agents.find((a) => a.id === selectedAgentId.value);
+      const messageHistory = [];
+
+      // Concatenate system prompts
+      const systemPrompt = agent && agent.data.systemPrompts && agent.data.systemPrompts.length > 0
+        ? agent.data.systemPrompts.map(prompt => prompt.content).filter(content => content).join("\n\n") + "\n\nAlways return a JSON array of tasks, each with 'title', 'description', 'comment', and 'status' fields, where 'status' is 'pending' or 'complete'. Ensure the response is valid JSON."
+        : "You are a helpful assistant that generates JSON task lists. Return a JSON array of tasks, each with 'title', 'description', 'comment', and 'status' fields, where 'status' is 'pending' or 'complete'. Ensure the response is valid JSON.";
+
+      if (systemPrompt) {
+        messageHistory.push({
+          role: "user",
+          content: systemPrompt,
+        });
+      }
+
+      // Append user prompts
+      if (agent && agent.data.userPrompts && agent.data.userPrompts.length > 0) {
+        agent.data.userPrompts.forEach(prompt => {
+          if (prompt.content) {
+            messageHistory.push({
+              role: "user",
+              content: prompt.content,
+            });
+          }
+        });
+      }
+
+      // Append current tasks as context
+      messageHistory.push(...activeTasks.value.map(task => ({
+        role: "user",
+        content: JSON.stringify({
+          title: task.data.title,
+          description: task.data.description,
+          comment: task.data.comment,
+          status: task.data.completed ? "complete" : "pending",
+        }),
+      })));
+
+      // Add regeneration request
+      messageHistory.push({
+        role: "user",
+        content: `Regenerate the task list, updating the status of tasks based on the latest changes. Tasks marked as completed should have status: "complete".`,
+      });
+
+      // Trigger LLM for regeneration
+      if (agent) {
+        console.log("Triggering LLM for regeneration, taskListId:", activeTaskListId.value);
+        const selectedModel = models.value.find((m) => m.model === agent.data.model) || {
+          provider: "gemini",
+          name: "Gemini",
+          model: "gemini",
+        };
+
+        try {
+          triggerLLM(
+            "taskLists",
+            activeTaskListId.value,
+            {
+              provider: selectedModel.provider,
+              name: selectedModel.name.en || selectedModel.name,
+              model: selectedModel.model,
+            },
+            0.7,
+            systemPrompt,
+            "Regenerate the task list with updated statuses.",
+            messageHistory,
+            true // Request JSON output
+          );
+        } catch (error) {
+          console.error("Error triggering LLM for regeneration:", error);
+          updateEntity("taskLists", activeTaskListId.value, {
+            name: "Error",
+            text: "Unable to regenerate task list",
+          });
+          delete pendingTaskLists.value[activeTaskListId.value];
+          isGenerating.value = false;
+          isSending.value = false;
+          return;
+        }
+      } else {
+        console.log("No agent found for selectedAgentId:", selectedAgentId.value);
+        updateEntity("taskLists", activeTaskListId.value, {
+          name: "Error",
+          text: "No agent selected",
+        });
+        delete pendingTaskLists.value[activeTaskListId.value];
+        isGenerating.value = false;
+        isSending.value = false;
+        return;
+      }
+
       isSending.value = false;
     }
 
@@ -721,6 +769,145 @@ export default {
       });
     }
 
+    function processLLMResponse(eventObj, taskListId) {
+      console.log("Processing LLM response with eventObj:", eventObj);
+
+      // Retrieve content from the taskLists entity
+      const taskList = entities.value.taskLists.find(tl => tl.id === taskListId);
+      if (!taskList) {
+        console.error("Task list not found for taskListId:", taskListId);
+        updateEntity("taskLists", taskListId, {
+          name: "Error",
+          text: "Task list not found",
+        });
+        delete pendingTaskLists.value[taskListId];
+        isGenerating.value = false;
+        return;
+      }
+
+      let content = taskList.data.text;
+      if (!content || typeof content !== 'string') {
+        console.error("No valid content found in taskList.data.text:", content);
+        updateEntity("taskLists", taskListId, {
+          name: "Error",
+          text: "No valid content received from LLM",
+        });
+        delete pendingTaskLists.value[taskListId];
+        isGenerating.value = false;
+        return;
+      }
+
+      try {
+        // Strip markdown ```json and ``` from the response in the correct order
+        let jsonString = content;
+        jsonString = jsonString.replaceAll("```json", "");
+        jsonString = jsonString.replaceAll("```", "");
+        jsonString = jsonString.trim();
+
+        console.log("Attempting to parse JSON string:", jsonString);
+        const jsonTasks = JSON5.parse(jsonString);
+        if (!Array.isArray(jsonTasks)) {
+          throw new Error("Response is not a JSON array");
+        }
+
+        console.log("Parsed JSON tasks:", jsonTasks);
+
+        // Update the task list name only if it hasn't been manually set
+        if (!taskList.data.isTitleSet) {
+          const taskListName = jsonTasks.length > 0
+            ? `List: ${jsonTasks[0].title}` // Changed prefix to "List:"
+            : draft.value.substring(0, 50) || "Untitled Task List"; // Fallback if draft is empty
+          updateEntity("taskLists", taskListId, {
+            name: taskListName,
+            isTitleSet: false,
+          });
+          console.log("Updated task list name to:", taskListName);
+        } else {
+          console.log("Preserving existing task list name:", taskList.data.name);
+        }
+
+        // Determine the highest existing order value for new tasks
+        const highestOrder = activeTasks.value.length > 0
+          ? Math.max(...activeTasks.value.map(task => task.data.order || 0))
+          : 0;
+
+        // If there are no existing tasks, create new ones with order
+        if (activeTasks.value.length === 0) {
+          jsonTasks.forEach((taskData, index) => {
+            addEntity("tasks", {
+              taskList: taskListId,
+              title: taskData.title || `Task ${index + 1}`,
+              description: taskData.description || "",
+              comment: taskData.comment || "",
+              completed: taskData.status === "complete",
+              displayName: taskData.status === "complete" ? displayName.value : null,
+              order: index, // Assign order based on JSON array position
+            });
+          });
+        } else {
+          // If there are existing tasks, compare and update or add new ones
+          const existingTasks = activeTasks.value.reduce((acc, task) => {
+            acc[task.data.title] = task;
+            return acc;
+          }, {});
+
+          const newTasks = [];
+          jsonTasks.forEach((taskData, index) => {
+            const existingTask = existingTasks[taskData.title];
+            if (existingTask) {
+              // Update existing task, preserving its order
+              console.log(`Updating existing task with ID ${existingTask.id}, preserving order: ${existingTask.data.order}`);
+              updateEntity("tasks", existingTask.id, {
+                ...existingTask.data,
+                description: taskData.description || existingTask.data.description,
+                comment: taskData.comment || existingTask.data.comment,
+                completed: taskData.status === "complete",
+                displayName: taskData.status === "complete" ? displayName.value : existingTask.data.displayName,
+                order: existingTask.data.order, // Preserve the original order
+              });
+            } else {
+              // Collect new tasks to add later with incremented order
+              newTasks.push({ taskData, index });
+            }
+          });
+
+          // Add new tasks with incremented order values
+          newTasks.forEach(({ taskData }, newIndex) => {
+            addEntity("tasks", {
+              taskList: taskListId,
+              title: taskData.title || `Task ${newIndex + 1}`,
+              description: taskData.description || "",
+              comment: taskData.comment || "",
+              completed: taskData.status === "complete",
+              displayName: taskData.status === "complete" ? displayName.value : null,
+              order: highestOrder + newIndex + 1, // Append new tasks in order
+            });
+          });
+
+          // Remove tasks that are no longer in the JSON response
+          activeTasks.value.forEach(task => {
+            if (!jsonTasks.some(jsonTask => jsonTask.title === task.data.title)) {
+              console.log(`Removing task with ID ${task.id}, title: ${task.data.title}`);
+              removeEntity("tasks", task.id);
+            }
+          });
+        }
+
+        // Preserve the task list's text field in the database
+        console.log("Preserving task list data.text in database:", content);
+
+        delete pendingTaskLists.value[taskListId];
+      } catch (e) {
+        console.error("Failed to parse JSON:", e);
+        updateEntity("taskLists", taskListId, {
+          name: "Error",
+          text: "Invalid JSON response: " + e.message,
+        });
+        delete pendingTaskLists.value[taskListId];
+      }
+      isGenerating.value = false;
+    }
+
     return {
       entities,
       activeTaskListId,
@@ -728,7 +915,6 @@ export default {
       draft,
       isSending,
       isGenerating,
-      rawJsonResponse,
       isEditingTaskList,
       isEditingComment,
       activeTasks,
